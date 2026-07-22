@@ -1,0 +1,6 @@
+hello
+no
+please
+sorry
+thank_you
+yes

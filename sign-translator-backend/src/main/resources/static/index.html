@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sign Language Translator</title>
+<style>
+  body { font-family: sans-serif; text-align: center; background: #111; color: white; }
+  #container { position: relative; display: inline-block; margin-top: 20px; }
+  video, canvas { position: absolute; left: 0; top: 0; }
+  #prediction { font-size: 28px; margin-top: 480px; color: #4caf50; }
+</style>
+</head>
+<body>
+
+<h1>Sign Language Translator</h1>
+<div id="container">
+  <video id="webcam" width="640" height="480" autoplay muted playsinline style="display:none;"></video>
+  <canvas id="output" width="640" height="480"></canvas>
+</div>
+<div id="prediction">Waiting for camera...</div>
+<br>
+<button id="startBtn" style="margin-top:20px; padding:10px 20px; font-size:16px;">Start Camera</button>
+<button id="stopBtn" style="margin-top:20px; padding:10px 20px; font-size:16px;">Stop Camera</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+
+<script>
+const videoElement = document.getElementById('webcam');
+const canvasElement = document.getElementById('output');
+const canvasCtx = canvasElement.getContext('2d');
+const predictionDiv = document.getElementById('prediction');
+
+const flipCanvas = document.createElement('canvas');
+flipCanvas.width = 640;
+flipCanvas.height = 480;
+const flipCtx = flipCanvas.getContext('2d');
+
+let sequence = [];
+let camera = null;
+let holistic = null;
+
+function extractKeypoints(results) {
+  const zeros = (n) => new Array(n).fill(0);
+
+  let pose = zeros(132);
+  if (results.poseLandmarks) {
+    pose = [];
+    for (const lm of results.poseLandmarks) pose.push(lm.x, lm.y, lm.z, lm.visibility);
+  }
+
+  let lh = zeros(63);
+  if (results.leftHandLandmarks) {
+    lh = [];
+    for (const lm of results.leftHandLandmarks) lh.push(lm.x, lm.y, lm.z);
+  }
+
+  let rh = zeros(63);
+  if (results.rightHandLandmarks) {
+    rh = [];
+    for (const lm of results.rightHandLandmarks) rh.push(lm.x, lm.y, lm.z);
+  }
+
+  return pose.concat(lh, rh);
+}
+
+async function sendPrediction() {
+  try {
+    const response = await fetch("/api/predict-sign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sequence: sequence })
+    });
+    const result = await response.json();
+    predictionDiv.innerText = `${result.sign} (${Math.round(result.confidence * 100)}%)`;
+  } catch (err) {
+    predictionDiv.innerText = "Error: " + err;
+  }
+}
+
+function onResults(results) {
+  canvasCtx.save();
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+  if (results.leftHandLandmarks) {
+  drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
+  drawLandmarks(canvasCtx, results.leftHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
+}
+if (results.rightHandLandmarks) {
+  drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
+  drawLandmarks(canvasCtx, results.rightHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
+}
+if (results.poseLandmarks) {
+  drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#FFFFFF'});
+  drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#00BFFF', lineWidth: 1, radius: 2});
+}
+  canvasCtx.restore();
+
+  sequence.push(extractKeypoints(results));
+  if (sequence.length === 30) {
+    sendPrediction();
+    sequence = [];
+  }
+}
+
+function initHolistic() {
+  holistic = new Holistic({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`});
+  holistic.setOptions({
+    modelComplexity: 1,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+  holistic.onResults(onResults);
+}
+
+function startCamera() {
+  predictionDiv.innerText = "Loading camera...";
+  initHolistic();
+
+  camera = new Camera(videoElement, {
+    onFrame: async () => {
+      flipCtx.save();
+      flipCtx.scale(-1, 1);
+      flipCtx.drawImage(videoElement, -flipCanvas.width, 0, flipCanvas.width, flipCanvas.height);
+      flipCtx.restore();
+      await holistic.send({image: flipCanvas});
+    },
+    width: 640,
+    height: 480
+  });
+  camera.start();
+  predictionDiv.innerText = "Camera running...";
+}
+
+function stopCamera() {
+  if (camera) {
+    camera.stop();
+    camera = null;
+  }
+  const stream = videoElement.srcObject;
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+  sequence = [];
+  predictionDiv.innerText = "Camera stopped.";
+}
+
+document.getElementById('startBtn').addEventListener('click', startCamera);
+document.getElementById('stopBtn').addEventListener('click', stopCamera);
+</script>
+
+</body>
+</html>
