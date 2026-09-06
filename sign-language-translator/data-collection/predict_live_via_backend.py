@@ -2,31 +2,22 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import requests
+import sys
 from collections import deque
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from preprocessing import SEQUENCE_LENGTH, extract_keypoints
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
 BACKEND_URL = "http://127.0.0.1:8080/api/predict-sign"
 
-
-def extract_keypoints(results):
-    lh = (
-        np.array([[lm.x, lm.y, lm.z] for lm in results.left_hand_landmarks.landmark]).flatten()
-        if results.left_hand_landmarks else np.zeros(21 * 3)
-    )
-    rh = (
-        np.array([[lm.x, lm.y, lm.z] for lm in results.right_hand_landmarks.landmark]).flatten()
-        if results.right_hand_landmarks else np.zeros(21 * 3)
-    )
-    pose = (
-        np.array([[lm.x, lm.y, lm.z, lm.visibility] for lm in results.pose_landmarks.landmark]).flatten()
-        if results.pose_landmarks else np.zeros(33 * 4)
-    )
-    return np.concatenate([pose, lh, rh])
-
-
-sequence = deque(maxlen=30)
+sequence = deque(maxlen=SEQUENCE_LENGTH)
 cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
 
 with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
@@ -47,7 +38,7 @@ with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=
         sequence.append(extract_keypoints(results))
 
         prediction_text = "..."
-        if len(sequence) == 30:
+        if len(sequence) == SEQUENCE_LENGTH:
             payload = {"sequence": np.array(sequence).tolist()}
             try:
                 response = requests.post(BACKEND_URL, json=payload, timeout=5)

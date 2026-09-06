@@ -2,25 +2,198 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sign Language Translator</title>
+<title>SignSpeak — Sign Language Translator</title>
 <style>
-  body { font-family: sans-serif; text-align: center; background: #111; color: white; }
-  #container { position: relative; display: inline-block; margin-top: 20px; }
-  video, canvas { position: absolute; left: 0; top: 0; }
-  #prediction { font-size: 28px; margin-top: 480px; color: #4caf50; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f1117, #1a1d29);
+    color: #eee;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 32px;
+    background: linear-gradient(90deg, #4caf50, #2196f3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header p {
+    color: #999;
+    margin-top: 4px;
+  }
+  .layout {
+    display: flex;
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .panel {
+    background: #1e2130;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  #container {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+  }
+  video, canvas {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+  }
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  button {
+    padding: 10px 22px;
+    font-size: 15px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.15s;
+  }
+  button:hover { transform: scale(1.04); }
+  #startBtn { background: #4caf50; color: white; }
+  #stopBtn { background: #e05656; color: white; }
+  #clearBtn { background: #444; color: white; }
+
+  #prediction {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 16px;
+    color: #4caf50;
+    min-height: 32px;
+  }
+
+  .side-panel {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .scores h3, .history h3 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #aaa;
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .score-label {
+    width: 80px;
+    flex-shrink: 0;
+    text-transform: capitalize;
+  }
+  .score-bar-bg {
+    flex: 1;
+    background: #333;
+    border-radius: 6px;
+    height: 14px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2196f3, #4caf50);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .score-pct {
+    width: 40px;
+    text-align: right;
+    color: #999;
+  }
+
+  .history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .history-item {
+    background: #2a2e42;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .history-item span.time {
+    color: #777;
+    font-size: 12px;
+  }
+
+  footer {
+    text-align: center;
+    color: #555;
+    margin-top: 30px;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
 
-<h1>Sign Language Translator</h1>
-<div id="container">
-  <video id="webcam" width="640" height="480" autoplay muted playsinline style="display:none;"></video>
-  <canvas id="output" width="640" height="480"></canvas>
+<header>
+  <h1>🤟 SignSpeak</h1>
+  <p>Real-time Indian Sign Language Translator — built by Kajitha</p>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <div id="container">
+      <video id="webcam" width="640" height="480" autoplay muted playsinline style="display:none;"></video>
+      <canvas id="output" width="640" height="480"></canvas>
+    </div>
+    <div id="prediction">Click "Start Camera" to begin</div>
+    <div class="controls">
+      <button id="startBtn">▶ Start Camera</button>
+      <button id="stopBtn">■ Stop Camera</button>
+      <button id="clearBtn">🗑 Clear History</button>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel scores">
+      <h3>Live Confidence Scores</h3>
+      <div id="scoresContainer"></div>
+    </div>
+
+    <div class="panel history">
+      <h3>Translation History</h3>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
 </div>
-<div id="prediction">Waiting for camera...</div>
-<br>
-<button id="startBtn" style="margin-top:20px; padding:10px 20px; font-size:16px;">Start Camera</button>
-<button id="stopBtn" style="margin-top:20px; padding:10px 20px; font-size:16px;">Stop Camera</button>
+
+<footer>Global Sign Language Translator — MediaPipe + CNN/LSTM + Spring Boot + Flask</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -31,6 +204,8 @@ const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('output');
 const canvasCtx = canvasElement.getContext('2d');
 const predictionDiv = document.getElementById('prediction');
+const scoresContainer = document.getElementById('scoresContainer');
+const historyList = document.getElementById('historyList');
 
 const flipCanvas = document.createElement('canvas');
 flipCanvas.width = 640;
@@ -40,6 +215,8 @@ const flipCtx = flipCanvas.getContext('2d');
 let sequence = [];
 let camera = null;
 let holistic = null;
+let lastSpokenSign = null;
+let lastSpokenTime = 0;
 
 function extractKeypoints(results) {
   const zeros = (n) => new Array(n).fill(0);
@@ -65,6 +242,30 @@ function extractKeypoints(results) {
   return pose.concat(lh, rh);
 }
 
+function updateScores(allScores) {
+  scoresContainer.innerHTML = "";
+  const sorted = Object.entries(allScores).sort((a, b) => b[1] - a[1]);
+  for (const [label, score] of sorted) {
+    const pct = Math.round(score * 100);
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    row.innerHTML = `
+      <div class="score-label">${label}</div>
+      <div class="score-bar-bg"><div class="score-bar-fill" style="width:${pct}%"></div></div>
+      <div class="score-pct">${pct}%</div>
+    `;
+    scoresContainer.appendChild(row);
+  }
+}
+
+function addToHistory(sign, confidence) {
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  const time = new Date().toLocaleTimeString();
+  item.innerHTML = `<span>${sign} (${Math.round(confidence*100)}%)</span><span class="time">${time}</span>`;
+  historyList.prepend(item);
+}
+
 async function sendPrediction() {
   try {
     const response = await fetch("/api/predict-sign", {
@@ -74,6 +275,11 @@ async function sendPrediction() {
     });
     const result = await response.json();
     predictionDiv.innerText = `${result.sign} (${Math.round(result.confidence * 100)}%)`;
+    updateScores(result.all_scores);
+
+    if (result.confidence > 0.6) {
+      addToHistory(result.sign, result.confidence);
+    }
   } catch (err) {
     predictionDiv.innerText = "Error: " + err;
   }
@@ -85,17 +291,18 @@ function onResults(results) {
   canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
   if (results.leftHandLandmarks) {
-  drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
-  drawLandmarks(canvasCtx, results.leftHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
-}
-if (results.rightHandLandmarks) {
-  drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
-  drawLandmarks(canvasCtx, results.rightHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
-}
-if (results.poseLandmarks) {
-  drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#FFFFFF'});
-  drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#00BFFF', lineWidth: 1, radius: 2});
-}
+    drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
+    drawLandmarks(canvasCtx, results.leftHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
+  }
+  if (results.rightHandLandmarks) {
+    drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, {color: '#00FF00'});
+    drawLandmarks(canvasCtx, results.rightHandLandmarks, {color: '#FF0000', lineWidth: 1, radius: 3});
+  }
+  if (results.poseLandmarks) {
+    drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#FFFFFF'});
+    drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#00BFFF', lineWidth: 1, radius: 2});
+  }
+
   canvasCtx.restore();
 
   sequence.push(extractKeypoints(results));
@@ -149,6 +356,7 @@ function stopCamera() {
 
 document.getElementById('startBtn').addEventListener('click', startCamera);
 document.getElementById('stopBtn').addEventListener('click', stopCamera);
+document.getElementById('clearBtn').addEventListener('click', () => { historyList.innerHTML = ""; });
 </script>
 
 </body>

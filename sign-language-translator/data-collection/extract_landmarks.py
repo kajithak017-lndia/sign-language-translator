@@ -1,39 +1,26 @@
 import cv2
 import mediapipe as mp
-import numpy as np
+import sys
 from pathlib import Path
+
+import numpy as np
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from preprocessing import SEQUENCE_LENGTH, extract_keypoints, normalize_sequence
 
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
 
-def extract_keypoints(results) -> np.ndarray:
-    lh = (
-        np.array([[lm.x, lm.y, lm.z] for lm in results.left_hand_landmarks.landmark]).flatten()
-        if results.left_hand_landmarks
-        else np.zeros(21 * 3)
-    )
-    rh = (
-        np.array([[lm.x, lm.y, lm.z] for lm in results.right_hand_landmarks.landmark]).flatten()
-        if results.right_hand_landmarks
-        else np.zeros(21 * 3)
-    )
-    pose = (
-        np.array(
-            [[lm.x, lm.y, lm.z, lm.visibility] for lm in results.pose_landmarks.landmark]
-        ).flatten()
-        if results.pose_landmarks
-        else np.zeros(33 * 4)
-    )
-    return np.concatenate([pose, lh, rh])
-
-
-def run_extraction(source, label, out_dir, sequence_length=30):
+def run_extraction(source, label, out_dir, sequence_length=SEQUENCE_LENGTH):
     cap = cv2.VideoCapture(0 if source == "webcam" else source, cv2.CAP_MSMF)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video source: {source}")
 
-    print("Camera opened successfully, starting loop...")
+    print("Camera opened successfully. Press q to stop.")
 
     label_dir = Path(out_dir) / label
     label_dir.mkdir(parents=True, exist_ok=True)
@@ -44,7 +31,6 @@ def run_extraction(source, label, out_dir, sequence_length=30):
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
         while cap.isOpened():
             success, frame = cap.read()
-            print("Frame read success:", success)
             if not success:
                 break
 
@@ -65,8 +51,9 @@ def run_extraction(source, label, out_dir, sequence_length=30):
             cv2.imshow("Sign Language Data Collection", image)
 
             if len(sequence) == sequence_length:
+                normalized = normalize_sequence(sequence)
                 save_path = label_dir / f"{label}_{existing:04d}.npy"
-                np.save(save_path, np.array(sequence))
+                np.save(save_path, normalized)
                 print(f"Saved sequence: {save_path}")
                 existing += 1
                 sequence = []
@@ -79,4 +66,4 @@ def run_extraction(source, label, out_dir, sequence_length=30):
 
 
 if __name__ == "__main__":
-    run_extraction(source="webcam", label="sorry", out_dir="data/raw", sequence_length=30)
+    run_extraction(source="webcam", label="sorry", out_dir=PROJECT_ROOT / "data" / "raw")

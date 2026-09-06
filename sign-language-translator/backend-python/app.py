@@ -1,11 +1,19 @@
 from flask import Flask, request, jsonify
 import numpy as np
+from pathlib import Path
+import sys
 from tensorflow.keras.models import load_model
 
 app = Flask(__name__)
 
-model = load_model("models/sign_model.h5")
-with open("models/sign_model.labels.txt") as f:
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from preprocessing import FEATURE_COUNT, SEQUENCE_LENGTH, normalize_sequence
+
+model = load_model(PROJECT_ROOT / "models" / "sign_model.h5")
+with open(PROJECT_ROOT / "models" / "sign_model.labels.txt") as f:
     labels = f.read().splitlines()
 
 
@@ -19,10 +27,10 @@ def predict():
 
     sequence = np.array(data["sequence"])
 
-    if sequence.shape != (30, 258):
-        return jsonify({"error": f"Expected shape (30, 258), got {sequence.shape}"}), 400
+    if sequence.shape != (SEQUENCE_LENGTH, FEATURE_COUNT):
+        return jsonify({"error": f"Expected shape {(SEQUENCE_LENGTH, FEATURE_COUNT)}, got {sequence.shape}"}), 400
 
-    input_data = np.expand_dims(sequence, axis=0)
+    input_data = np.expand_dims(normalize_sequence(sequence), axis=0)
     prediction = model.predict(input_data, verbose=0)[0]
 
     best_idx = int(np.argmax(prediction))
@@ -35,4 +43,4 @@ def predict():
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
