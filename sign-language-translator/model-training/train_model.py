@@ -55,8 +55,13 @@ def augment_sequence(sequence):
     coordinate_mask[3:132:4] = False
     augmented[:, coordinate_mask] += np.random.normal(0, 0.015, size=augmented[:, coordinate_mask].shape)
     shift = np.random.randint(-2, 3)
-    if shift:
-        augmented = np.roll(augmented, shift, axis=0)
+    if shift > 0:
+        augmented[shift:] = sequence[:-shift]
+        augmented[:shift] = sequence[0]
+    elif shift < 0:
+        offset = abs(shift)
+        augmented[:-offset] = sequence[offset:]
+        augmented[-offset:] = sequence[-1]
     return augmented.astype(np.float32)
 
 

@@ -1,14 +1,15 @@
-# 🤟 Sign Language Translator
+# Sign Language Translator
 
-A Sign Language Translator application that uses Artificial Intelligence to recognize sign language gestures and convert them into text. The project includes a Spring Boot backend and is developed using Visual Studio Code.
+A camera-based sign language translator that uses MediaPipe Holistic landmarks and a TensorFlow CNN-BiLSTM classifier to recognize a small trained vocabulary and display the result in a browser.
 
 ## 🚀 Features
 
-- Real-time sign language recognition
-- AI-powered gesture detection
-- Converts sign language into text
-- REST API using Spring Boot
-- Simple and user-friendly interface
+- Real-time sign recognition for `hello`, `no`, `please`, `sorry`, `thank_you`, and `yes`
+- Rolling 30-frame prediction window with stable-result filtering
+- Confidence scores and translation history
+- Optional browser text-to-speech output
+- Spring Boot API gateway with a Python Flask recognition service
+- Health checks at `/api/health` and `/health`
 
 ## 🛠️ Technologies Used
 
@@ -24,36 +25,46 @@ A Sign Language Translator application that uses Artificial Intelligence to reco
 - Maven
 - Visual Studio Code (VS Code)
 
-## 📂 Project Structure
+## Project Structure
 
 ```
-sign-language-translator/
-│── sign-translator-backend/
-│── src/
-│── pom.xml
-│── README.md
+signlanguage/
+├── sign-language-translator/
+│   ├── backend-python/app.py
+│   ├── data-collection/
+│   ├── model-training/
+│   ├── data/raw/
+│   ├── models/
+│   └── preprocessing.py
+└── sign-translator-backend/
+    └── src/main/resources/static/index.html
 ```
 
-## ⚙️ How to Run
+## How to Run
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/kajithak017-lndia/sign-language-translator.git
-   ```
+Open two VS Code terminals.
 
-2. Open the project in **Visual Studio Code**.
+Terminal 1, start the Python recognition service:
 
-3. Install the required Java and Python dependencies.
+```powershell
+cd D:\signlanguage\sign-language-translator
+.\venv\Scripts\Activate.ps1
+python .\backend-python\app.py
+```
 
-4. Run the Spring Boot application.
+Terminal 2, start the Spring Boot web application:
 
-5. Open the application in your browser.
+```powershell
+cd D:\signlanguage\sign-translator-backend
+./mvnw.cmd spring-boot:run
+```
+
+Open `http://localhost:8080`. The Python service listens on port 5000 and the browser-facing Spring Boot service listens on port 8080.
 
 ## 🎯 Future Enhancements
 
-- Voice output for translated text
 - Support for additional sign languages
-- Improved AI model accuracy
+- Larger and more diverse training data
 - Mobile application support
 
 ## 👩‍💻 Author

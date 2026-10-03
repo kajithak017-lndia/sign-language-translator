@@ -18,17 +18,30 @@ with open(PROJECT_ROOT / "models" / "sign_model.labels.txt") as f:
 
 
 print("Model loaded. Known signs:", labels)
+
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok", "labels": labels})
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
-    if "sequence" not in data:
+    if not isinstance(data, dict) or "sequence" not in data:
         return jsonify({"error": "Missing 'sequence' in request"}), 400
 
-    sequence = np.array(data["sequence"])
+    try:
+        sequence = np.asarray(data["sequence"], dtype=np.float32)
+    except (TypeError, ValueError):
+        return jsonify({"error": "'sequence' must contain numeric values"}), 400
 
     if sequence.shape != (SEQUENCE_LENGTH, FEATURE_COUNT):
         return jsonify({"error": f"Expected shape {(SEQUENCE_LENGTH, FEATURE_COUNT)}, got {sequence.shape}"}), 400
+
+    if not np.isfinite(sequence).all():
+        return jsonify({"error": "'sequence' contains non-finite values"}), 400
 
     input_data = np.expand_dims(normalize_sequence(sequence), axis=0)
     prediction = model.predict(input_data, verbose=0)[0]

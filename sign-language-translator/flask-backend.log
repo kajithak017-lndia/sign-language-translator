@@ -1,4 +1,3 @@
 Model loaded. Known signs: ['hello', 'no', 'please', 'sorry', 'thank_you', 'yes']
  * Serving Flask app 'app'
- * Debug mode: on
-Model loaded. Known signs: ['hello', 'no', 'please', 'sorry', 'thank_you', 'yes']
+ * Debug mode: off
